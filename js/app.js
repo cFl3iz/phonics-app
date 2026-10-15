@@ -64,6 +64,7 @@ function handleRoute() {
     switch (path) {
       case 'home': renderHome(); break;
       case 'learn': renderLearn(); break;
+      case 'review': renderReview(); break;
       default: renderHome();
     }
     dom.main.style.opacity = 1;
@@ -78,17 +79,16 @@ function renderHome() {
   dom.main.innerHTML = `
         <section class="hero">
             <div class="container">
-                <h1>自然拼读，从零开始</h1>
-                <p>系统学习 100+ 发音规则，掌握「见词能读、听音能写」的核心能力。适合英语初学者和教学工作者。</p>
+                <h1>自然拼读</h1>
+                <p>v1.0</p>
                 <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                    <a href="#/learn" class="btn btn-primary">开始学习</a>
-                    <a href="https://github.com/cocojojo5213/phonics-app" target="_blank" class="btn" style="border: 1px solid var(--border-soft)">GitHub</a>
+                    <a href="#/learn" class="btn btn-primary">开始学习</a> 
                 </div>
                 
                 <div class="category-grid" style="margin-top: 5rem; text-align: left;">
                     <div class="card">
-                        <h3 style="margin-bottom: 0.5rem;">科学分类</h3>
-                        <p style="font-size: 0.9rem; color: var(--text-muted)">16 大发音分类，从字母到音节，循序渐进。</p>
+                        <h3 style="margin-bottom: 0.5rem;">按学习进度章节</h3>
+                        <p style="font-size: 0.9rem; color: var(--text-muted)">根据实际课程单词需求。</p>
                     </div>
                     <div class="card">
                         <h3 style="margin-bottom: 0.5rem;">拼读分解</h3>
@@ -96,7 +96,7 @@ function renderHome() {
                     </div>
                     <div class="card">
                         <h3 style="margin-bottom: 0.5rem;">真人发音</h3>
-                        <p style="font-size: 0.9rem; color: var(--text-muted)">高质量语音合成，支持单词和例句朗读。</p>
+                        <p style="font-size: 0.9rem; color: var(--text-muted)">高质量语音合成，支持单词+音节+例句朗读。</p>
                     </div>
                 </div>
             </div>
@@ -263,19 +263,23 @@ function renderPracticeAction(data) {
                 </button>
             </div>
 
-            <div class="practice-actions" aria-label="练习操作">
+            <div class="practice-actions" aria-label="练习操作"> 
                 <button class="btn nav-action" onclick="prevWord()" ${state.currentWordIndex === 0 ? 'disabled' : ''}>上一词</button>
                 <button class="btn btn-primary nav-action" onclick="app.playWord('${escapeHtml(word.word)}')">播放单词</button>
                 ${word.sentence ? `<button class="btn nav-action" onclick="app.playSentence(event, '${escapeHtml(word.word)}', '${escapeHtml(word.sentence)}')">播放例句</button>` : ''}
                 <button class="btn nav-action" onclick="nextWord()" ${state.currentWordIndex === state.allWords.length - 1 ? 'disabled' : ''}>下一词</button>
+                     
             </div>
 
             <div class="practice-progress">
                 ${state.currentWordIndex + 1} / ${state.allWords.length}
+                <br/>
+                <button class="btn nav-action" onclick="startReview()">📝 进行本单元复习 😈</button>  
             </div>
             <div class="mobile-hint">
                 左右滑动切换单词
             </div>
+            
         </div>
     `;
 
@@ -450,7 +454,7 @@ function formatSyllables(syllables, word) {
 
   const chips = syllables.map((s, i) =>
     `<span class="syllable-chip" title="点击发音" onclick="app.playSyllable(event, '${escapeHtml(word)}', ${i})">${s.replace(/\|/g, '')}</span>`
-  ).join('<span class="syllable-sep">·</span>');
+  ).join('<span class="syllable-sep">-</span>');
 
   return `<div class="syllables-display">音节划分：${chips}</div>`;
 }
@@ -469,6 +473,236 @@ function escapeHtml(str) {
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
 }
+
+// New Logic Review
+
+
+
+
+// ==================== 复习模式（听音默写） ====================
+
+const reviewState = {
+  category: null,
+  words: [],
+  index: 0,
+  input: '',
+  wrong: [],   // [{ item: 词对象, typed: 用户输入 }]
+  locked: false
+};
+
+function startReview(categoryId) {
+  const catId = categoryId || state.currentCategory;
+  if (!catId) return;
+  const words = [];
+  getPatternsByCategory(catId).forEach(p => (p.words || []).forEach(w => words.push(w)));
+  if (words.length === 0) return;
+  shuffleArray(words);
+  reviewState.category = catId;
+  reviewState.words = words;
+  reviewState.index = 0;
+  reviewState.input = '';
+  reviewState.wrong = [];
+  reviewState.locked = false;
+  window.location.hash = '#/review';
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function reviewCurrentWord() {
+  return reviewState.words[reviewState.index];
+}
+
+// ---------- 渲染 ----------
+
+function renderReview() {
+  const r = reviewState;
+  if (r.index >= r.words.length) { renderReviewResult(); return; }
+
+  const rows = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+  const kb = rows.map(row =>
+    `<div class="vk-row">${row.split('').map(k =>
+      `<button class="vk-key" onclick="reviewType('${k}')">${k}</button>`).join('')}</div>`
+  ).join('') + `
+    <div class="vk-row">
+      <button class="vk-key vk-wide" onclick="reviewClear()">清空</button>
+      <button class="vk-key vk-wide" onclick="reviewBackspace()">⌫ 删除</button>
+      <button class="vk-key vk-submit" onclick="reviewSubmit()">提交</button>
+    </div>`;
+
+  dom.main.innerHTML = `
+    <div class="container" style="padding-top: 40px;">
+      <div class="review-header">
+        <h2>📝 听音默写</h2>
+        <div class="review-progress">${r.index + 1} / ${r.words.length}</div>
+      </div>
+
+      <div class="card review-card">
+        <div class="review-meaning">${reviewCurrentWord().meaning || ''}</div>
+        <button class="btn btn-primary" onclick="reviewReplay()">🔊 播放音节</button>
+
+        <div class="tile-row" id="tile-row"></div>
+        <div id="review-feedback" class="review-feedback"></div>
+
+        <div class="vkboard">${kb}</div>
+      </div>
+
+      <div style="text-align:center; margin-top:1.5rem;">
+        <button class="btn" onclick="location.hash='#/learn'">退出复习</button>
+      </div>
+    </div>`;
+
+  refreshTiles();
+
+  // 进题后自动朗读一次（若浏览器拦截，点"播放音节"按钮即可）
+  setTimeout(() => {
+    if ((window.location.hash || '').startsWith('#/review') && !reviewState.locked) reviewReplay();
+  }, 400);
+}
+
+function renderReviewResult() {
+  const r = reviewState;
+  const total = r.words.length;
+  const wrongCount = r.wrong.length;
+
+  const wrongList = r.wrong.map(e => `
+    <div class="wrong-item">
+      <div>
+        <span class="wrong-word">${escapeHtml(e.item.word)}</span>
+        <span class="wrong-meaning">${escapeHtml(e.item.meaning || '')}</span>
+      </div>
+      <div class="wrong-detail">你的答案：<span class="wrong-typed">${escapeHtml(e.typed || '（空）')}</span></div>
+      <button class="btn" onclick="reviewPlayWord('${escapeHtml(e.item.word)}')">🔊</button>
+    </div>`).join('');
+
+  dom.main.innerHTML = `
+    <div class="container" style="padding-top: 40px;">
+      <div class="card review-card" style="text-align:center;">
+        <h2>复习完成！</h2>
+        <p class="review-score">共 ${total} 词，答对 <b style="color:#22c55e">${total - wrongCount}</b>，默写错误 <b style="color:#ef4444">${wrongCount}</b></p>
+        ${wrongCount
+          ? `<div class="wrong-list"><h3 style="margin-bottom:0.8rem;">以下词语默写错误：</h3>${wrongList}</div>`
+          : `<p style="font-size:1.2rem;">🎉 全部正确，太棒了！</p>`}
+        <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; margin-top:1.5rem;">
+          ${wrongCount ? `<button class="btn btn-primary" onclick="reviewRetryWrong()">再练一次错词</button>` : ''}
+          <button class="btn" onclick="startReview(reviewState.category)">重新复习全部</button>
+          <button class="btn" onclick="location.hash='#/learn'">返回学习</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ---------- 交互 ----------
+
+function refreshTiles() {
+  const w = reviewCurrentWord();
+  const row = document.getElementById('tile-row');
+  if (!w || !row) return;
+  const len = Math.max(w.word.length, reviewState.input.length);
+  let html = '';
+  for (let i = 0; i < len; i++) {
+    const ch = reviewState.input[i] || '';
+    html += `<span class="tile ${ch ? 'filled' : ''} ${i === reviewState.input.length ? 'cursor' : ''}">${ch}</span>`;
+  }
+  row.innerHTML = html;
+}
+
+function reviewType(ch) {
+  if (reviewState.locked) return;
+  reviewState.input += ch;
+  refreshTiles();
+}
+
+function reviewBackspace() {
+  if (reviewState.locked) return;
+  reviewState.input = reviewState.input.slice(0, -1);
+  refreshTiles();
+}
+
+function reviewClear() {
+  if (reviewState.locked) return;
+  reviewState.input = '';
+  refreshTiles();
+}
+
+function reviewSubmit() {
+  const r = reviewState;
+  const w = reviewCurrentWord();
+  if (r.locked || !w) return;
+
+  const correct = r.input.trim().toLowerCase() === w.word.trim().toLowerCase();
+  r.locked = true;
+
+  const row = document.getElementById('tile-row');
+  const fb = document.getElementById('review-feedback');
+  if (row) row.classList.add(correct ? 'all-correct' : 'all-wrong');
+  if (fb) fb.innerHTML = correct
+    ? `<span style="color:#22c55e">✓ 正确！</span>`
+    : `<span style="color:#ef4444">✗ 正确拼写：<b>${escapeHtml(w.word)}</b></span>`;
+
+  if (!correct) r.wrong.push({ item: w, typed: r.input });
+
+  setTimeout(() => {
+    r.index++;
+    r.input = '';
+    r.locked = false;
+    renderReview();
+  }, correct ? 700 : 1800);
+}
+
+async function reviewReplay() {
+  const r = reviewState;
+  const w = reviewCurrentWord();
+  if (!w) return;
+  if (w.syllables && w.syllables.length > 0) {
+    // 逐个音节慢速播放
+    for (let i = 0; i < w.syllables.length; i++) {
+      await AudioLoader.playSyllable(r.category, '', w.word, i, w.syllables[i].replace(/\|/g, ''));
+      await new Promise(res => setTimeout(res, 350));
+    }
+  } else {
+    // 无音节数据则播整个单词（走 audio/<word>.mp3，缺音频时浏览器兜底）
+    AudioLoader.playWord(r.category, '', w.word);
+  }
+}
+
+function reviewRetryWrong() {
+  const items = reviewState.wrong.map(e => e.item);
+  if (items.length === 0) return;
+  shuffleArray(items);
+  reviewState.words = items;
+  reviewState.index = 0;
+  reviewState.input = '';
+  reviewState.wrong = [];
+  reviewState.locked = false;
+  renderReview();
+}
+
+function reviewPlayWord(word) {
+  AudioLoader.playWord(reviewState.category, '', word);
+}
+
+// 暴露给 onclick 使用
+Object.assign(window, {
+  startReview, reviewType, reviewBackspace, reviewClear,
+  reviewSubmit, reviewReplay, reviewRetryWrong, reviewPlayWord
+});
+
+// 支持电脑物理键盘输入
+document.addEventListener('keydown', (e) => {
+  if (!(window.location.hash || '').startsWith('#/review')) return;
+  if (reviewState.index >= reviewState.words.length) return;
+  if (/^[a-zA-Z]$/.test(e.key)) reviewType(e.key.toLowerCase());
+  else if (e.key === 'Backspace') reviewBackspace();
+  else if (e.key === 'Enter') reviewSubmit();
+});
+
+// ==================== 复习模式 END ====================
+
 
 
 // --- Global App Object ---

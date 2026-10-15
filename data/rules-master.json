@@ -21,8 +21,8 @@
   "categories": [ 
     {
       "id": "my-words",
-      "name_cn": "我的单词",
-      "name_en": "My Words",
+      "name_cn": "Unit 3 Our garden 词汇表",
+      "name_en": "Unit 3 Our garden",
       "order": 0
     }
   ],
@@ -35,8 +35,8 @@
       ],
       "sound": {
         "ipa": "",
-        "name_cn": "第一单元词汇",
-        "name_en": "Unit 1 Vocabulary"
+        "name_cn": "Unit3 Our garden 词汇表",
+        "name_en": "Unit3 Our garden"
       },
       "tts": {
         "zh": "自定义词库：第一单元",

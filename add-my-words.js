@@ -131,17 +131,17 @@ function main() {
     const maxOrder = Math.max(0, ...(data.categories || []).map(c => c.order || 0));
 
     data.categories.push({
-        id: CAT_ID,
-        name_cn: '我的单词',
-        name_en: 'My Words',
+        id: Unit3,
+        name_cn: 'Unit3 Our garden 词汇表',
+        name_en: 'Unit3 Our garden',
         order: maxOrder + 1
     });
 
     data.rules.push({
         id: 'my-words-unit1',
-        category: CAT_ID,
+        category: Unit3,
         graphemes: ['My Words'],
-        sound: { ipa: '', name_cn: '第一单元词汇', name_en: 'Unit 1 Vocabulary' },
+        sound: { ipa: '', name_cn: '单元词汇', name_en: 'Vocabulary' },
         tts: { zh: '自定义词库：第一单元', en: '' },
         examples: WORDS.map(w => ({
             word: w.word,
