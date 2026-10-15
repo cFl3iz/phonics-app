@@ -435,23 +435,24 @@ function formatBreakdown(breakdown, highlight, pattern, tokenFlags = []) {
   }).join('<span class="phoneme-sep">·</span>');
 }
 
-// 音节显示格式化
+// 音节显示格式化（每个音节可点击发音）
 function formatSyllables(syllables, word) {
   // 防御性检查：必须是数组且有多个音节才显示
   if (!syllables || !Array.isArray(syllables) || syllables.length <= 1) {
     return '';
   }
 
-  // 将每个音节的 | 分隔符去掉，得到完整音节文本
-  const syllableText = syllables.map(s => s.replace(/\|/g, '')).join(' · ');
-  
   // 验证：拼接后应该等于原单词（忽略大小写）
   const joined = syllables.map(s => s.replace(/\|/g, '')).join('');
   if (word && joined.toLowerCase() !== word.toLowerCase()) {
     console.warn(`音节划分不匹配: ${word} vs ${joined}`);
   }
 
-  return `<div class="syllables-display">音节划分：${syllableText}</div>`;
+  const chips = syllables.map((s, i) =>
+    `<span class="syllable-chip" title="点击发音" onclick="app.playSyllable(event, '${escapeHtml(word)}', ${i})">${s.replace(/\|/g, '')}</span>`
+  ).join('<span class="syllable-sep">·</span>');
+
+  return `<div class="syllables-display">音节划分：${chips}</div>`;
 }
 
 function escapeRegex(str) {
@@ -482,6 +483,14 @@ window.app = {
   playSentence: (event, word, sentence) => {
     if (event) event.stopPropagation();
     AudioLoader.playSentence(state.currentCategory, state.currentPattern, word, sentence);
+  },
+  playSyllable: (event, word, index) => {
+    if (event) event.stopPropagation(); // 阻止触发整个单词的播放
+    const w = state.allWords[state.currentWordIndex];
+    const text = (w && w.syllables && w.syllables[index])
+      ? w.syllables[index].replace(/\|/g, '')
+      : '';
+    AudioLoader.playSyllable(state.currentCategory, state.currentPattern, word, index, text);
   }
 };
 

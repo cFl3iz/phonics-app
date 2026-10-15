@@ -424,6 +424,27 @@ const AudioLoader = (function () {
     }
 
     /**
+     * 播放单个音节
+     */
+    async function playSyllable(category, pattern, word, index, text) {
+        const wordLower = (word || '').toLowerCase();
+
+        await ensureBundlesChecked();
+        if (config.useBundles && category && pattern && isBundleAvailable(category, pattern)) {
+            const bundle = await loadBundle(category, pattern);
+            if (bundle && playFromBundle(bundle, `${wordLower}_syllable_${index}`)) {
+                return;
+            }
+        }
+
+        // 回退：从音节音频目录加载，找不到则用浏览器朗读该音节
+        await playFromFile(
+            `${config.audioPath}/syllables/${wordLower}_${index}.mp3`,
+            text
+        );
+    }
+
+    /**
      * 预加载 bundle（用于提前加载即将使用的内容）
      */
     function preloadBundle(category, pattern) {
@@ -483,6 +504,7 @@ const AudioLoader = (function () {
         clearCache,
         speakWithBrowser,
         stopCurrent,
+        playSyllable,
         config
     };
 })();

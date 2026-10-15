@@ -1277,3 +1277,22 @@ header,
     color: #000000;
   }
 }
+
+/* 可点击音节 */
+.syllable-chip {
+    cursor: pointer;
+    padding: 0.05em 0.35em;
+    border-radius: 6px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    user-select: none;
+}
+
+.syllable-chip:hover {
+    background-color: var(--accent);
+    color: #fff;
+}
+
+.syllable-sep {
+    color: var(--text-muted);
+    margin: 0 0.1em;
+}
