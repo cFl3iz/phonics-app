@@ -31,6 +31,10 @@ async function init() {
     // 数据加载完成后刷新当前页面（Home 统计 & Learn 列表）
     handleRoute();
   });
+
+  // 阻止 iOS 捏合/双击缩放
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 }
 
 function initTheme() {
@@ -487,7 +491,8 @@ const reviewState = {
   index: 0,
   input: '',
   wrong: [],   // [{ item: 词对象, typed: 用户输入 }]
-  locked: false
+  locked: false,
+  replaying: false   // 新增：防止播放中重复点击
 };
 
 function startReview(categoryId) {
@@ -543,7 +548,8 @@ function renderReview() {
 
       <div class="card review-card">
         <div class="review-meaning">${reviewCurrentWord().meaning || ''}</div>
-        <button class="btn btn-primary" onclick="reviewReplay()">🔊 播放音节</button>
+        <button class="btn btn-primary" onclick="reviewReplay()">🔊 重播（音节 + 单词）</button>
+        <div class="syl-dots" id="syl-dots">${(reviewCurrentWord().syllables || []).map(() => '<span class="syl-dot"></span>').join('')}</div>
 
         <div class="tile-row" id="tile-row"></div>
         <div id="review-feedback" class="review-feedback"></div>
@@ -657,17 +663,44 @@ function reviewSubmit() {
 async function reviewReplay() {
   const r = reviewState;
   const w = reviewCurrentWord();
-  if (!w) return;
-  if (w.syllables && w.syllables.length > 0) {
-    // 逐个音节慢速播放
-    for (let i = 0; i < w.syllables.length; i++) {
-      await AudioLoader.playSyllable(r.category, '', w.word, i, w.syllables[i].replace(/\|/g, ''));
-      await new Promise(res => setTimeout(res, 350));
+  if (!w || r.replaying) return;
+  r.replaying = true;
+  try {
+    // 1. 逐音节播放（间隔 150ms），圆点同步高亮
+    if (w.syllables && w.syllables.length > 0) {
+      for (let i = 0; i < w.syllables.length; i++) {
+        setActiveDot(i);
+        await AudioLoader.playSyllable(r.category, '', w.word, i, w.syllables[i].replace(/\|/g, ''));
+        await new Promise(res => setTimeout(res, 150));
+      }
+      clearDots();
     }
-  } else {
-    // 无音节数据则播整个单词（走 audio/<word>.mp3，缺音频时浏览器兜底）
-    AudioLoader.playWord(r.category, '', w.word);
+
+    // 2. 停顿后播放完整单词（圆点全部变绿）
+    await new Promise(res => setTimeout(res, 200));
+    setWordPlaying(true);
+    await AudioLoader.playWord(r.category, '', w.word);
+  } finally {
+    r.replaying = false;
+    clearDots();
   }
+}
+
+function setActiveDot(i) {
+  document.querySelectorAll('#syl-dots .syl-dot').forEach((d, idx) => {
+    d.classList.toggle('active', idx === i);
+  });
+}
+
+function setWordPlaying(on) {
+  const c = document.getElementById('syl-dots');
+  if (c) c.classList.toggle('word-play', on);
+}
+
+function clearDots() {
+  document.querySelectorAll('#syl-dots .syl-dot').forEach(d => d.classList.remove('active'));
+  const c = document.getElementById('syl-dots');
+  if (c) c.classList.remove('word-play');
 }
 
 function reviewRetryWrong() {

@@ -1349,3 +1349,22 @@ header,
 .wrong-meaning { color: var(--text-muted, #94a3b8); }
 .wrong-detail { flex: 1; }
 .wrong-typed { color: #ef4444; text-decoration: line-through; }
+
+/* 音节播放指示灯 */
+.syl-dots { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 0.8rem 0 0.2rem; min-height: 16px; }
+.syl-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--border-soft, #334155);
+  transition: background-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+.syl-dot.active {
+  background: var(--accent, #3b82f6);
+  transform: scale(1.4);
+  box-shadow: 0 0 10px var(--accent, #3b82f6);
+}
+.syl-dots.word-play .syl-dot { background: #22c55e; transform: scale(1.15); }
+
+/* 禁用双击缩放，同时消除按钮点击延迟 */
+html, body {
+    touch-action: manipulation;
+}
